@@ -1,0 +1,11 @@
+; Copy to config/telegram.ini and fill in.
+; config/telegram.ini is gitignored. NEVER commit real values.
+;
+; PREREQUISITE - manual, per terminal, cannot be scripted:
+;   Tools > Options > Expert Advisors > Allow WebRequest for listed URL
+;   Add: https://api.telegram.org
+; Missing this produces error 4014 on init.
+
+[telegram]
+bot_token = YOUR_BOT_TOKEN_HERE
+chat_id   = YOUR_CHAT_ID_HERE
