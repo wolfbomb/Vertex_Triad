@@ -42,3 +42,4 @@ still execute correctly.
 
 Backtest performance is not a prediction of live performance. The demo forward
 test is the real gate, and passing it authorizes nothing on its own.
+# Vertex_Triad
