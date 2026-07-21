@@ -16,8 +16,8 @@
 | Symbols | XAUUSD, BTCUSD |
 | Brokers | VT Markets, Pepperstone Razor ECN |
 | Repo | _TBD_ |
-| Current phase | **0 — Scaffold** |
-| Status | 🔲 Not started |
+| Current phase | **1 — SwingDetector + FibZone** |
+| Status | 🔨 In progress |
 | Live capital | ❌ NO — demo only |
 
 **Status legend:** 🔲 Not started · 🔨 In progress · 🔍 In verification · ✅ Complete · ⛔ Blocked · ⚠️ Complete with caveats
@@ -29,7 +29,7 @@
 | # | Phase | Status | Started | Completed | Commit | Notes |
 |---|---|:---:|---|---|---|---|
 | 0 | Scaffold | 🔲 | | | | |
-| 1 | SwingDetector + FibZone | 🔲 | | | | |
+| 1 | SwingDetector + FibZone | 🔨 | 2026-07-21 | | | Core detection + zone logic implemented; verification pending |
 | 2 | VolumeProfile | 🔲 | | | | TradingView cross-check is the gate |
 | 3 | EngulfDetector | 🔲 | | | | |
 | 4 | ConfluenceScorer | 🔲 | | | | |
@@ -47,9 +47,9 @@
 
 | Module | Status | Phase | LOC | Last touched | Notes |
 |---|:---:|:---:|---:|---|---|
-| `VERTEX_Triad.mq5` | 🔲 | 0 | | | |
-| `SwingDetector.mqh` | 🔲 | 1 | | | |
-| `FibZone.mqh` | 🔲 | 1 | | | |
+| `VERTEX_Triad.mq5` | 🔨 | 1 | | 2026-07-21 | Phase 1 wiring added in OnTick |
+| `SwingDetector.mqh` | 🔨 | 1 | | 2026-07-21 | Fractal swings + leg qualification filters implemented |
+| `FibZone.mqh` | 🔨 | 1 | | 2026-07-21 | Zone build + invalidation checks implemented |
 | `VolumeProfile.mqh` | 🔲 | 2 | | | |
 | `EngulfDetector.mqh` | 🔲 | 3 | | | |
 | `ConfluenceScorer.mqh` | 🔲 | 4 | | | |
@@ -57,7 +57,7 @@
 | `TradeExecutor.mqh` | 🔲 | 5 | | | |
 | `PositionManager.mqh` | 🔲 | 6 | | | |
 | `Journal.mqh` | 🔲 | 4 | | | |
-| `Visualizer.mqh` | 🔲 | 1 | | | |
+| `Visualizer.mqh` | 🔨 | 1 | | 2026-07-21 | Prefix-scoped phase-1 fib visualization implemented |
 | `Notifier.mqh` | 🔲 | 7 | | | Router — no direct coupling |
 | `Dashboard.mqh` | 🔲 | 7 | | | |
 | `Telegram.mqh` | 🔲 | 8 | | | |
@@ -81,7 +81,30 @@ Newest first. One entry per working session.
 
 ---
 
-### _(no sessions yet)_
+### 2026-07-21 — Phase 1
+**Goal:** begin Phase 1 implementation of swing detection and Golden Zone logic.
+**Done:** implemented fractal swing scan, leg qualification filters (size/momentum/recency/cleanliness), fib zone construction, invalidation checks, and phase-1 chart visualization; wired flow into main EA new-bar path.
+**Evidence:** code-level implementation completed and tracker updated; compile/test evidence not yet captured in docs/phase1.
+**Blocked / open:** Manual chart validation (5 legs, >=2 bearish visual comparison vs MT5 Fib tool) still pending — requires MetaTrader 5 chart session.
+**Next:** attach EA to XAUUSD M15 in VT Markets MT5, screenshot Experts tab log + 5 zone comparisons, save to docs/phase1.
+**Commit:** _pending until checklist verified_
+
+### 2026-07-21 — Phase 1 continued (compile fix)
+**Goal:** achieve zero-error, zero-warning compile on VT Markets MetaEditor64.
+**Done:** diagnosed MQL5 vs MQL4 array scoping difference (High[]/Low[] etc. are not global in MQL5); rewrote SwingDetector, FibZone, Visualizer to accept price arrays as const-ref parameters; added G_CopyPriceSeries() in EA to copy and pass series arrays on each new bar; fixed version string warning; recompiled — **Result: 0 errors, 0 warnings, 444 ms**.
+**Evidence:** `docs/phase1/compile_readable.txt` — final line confirms 0 errors 0 warnings.
+**Blocked / open:** manual chart validation still needed.
+**Next:** attach to XAUUSD M15 in VT Markets MT5 visual mode.
+**Commit:** _pending_
+
+### 2026-07-21 — Phase 1 continued (automated zone math gate)
+
+**Goal:** generate and verify Phase 1 zone math against an independent recomputation, per SPEC §2.2.
+**Done:** ran a headless Strategy Tester pass (`VERTEX_Triad`, `XAUUSD-VIP`, M15, 2025.10.01–2025.12.31, Model=Every tick based on real ticks, `MaxLegAgeBars=150`) via `terminal64.exe /config`. EA wrote `phase1_zones.csv` (5345 rows / 85 distinct legs: 56 bullish, 29 bearish). Ran `tests/verify_phase1_zones.py` against it — fixed a bug in the script (a `✓` character crashed with `UnicodeEncodeError` under Windows cp1252 console, turning a real PASS into a false exit-code failure). Re-ran clean.
+**Evidence:** `docs/phase1/phase1_zones.csv` (raw tester output), `docs/phase1/phase1_zones_verification.txt` — **5345/5345 rows PASS, 0 FAIL, exit code 0**.
+**Blocked / open:** This confirms the fib050/0618/zoneUpper/zoneLower/invalidationLevel arithmetic is internally self-consistent — it does **not** replace the required manual comparison against MT5's native Fib tool (SPEC's actual Phase 1 gate), which checks that swing detection picks the _right_ legs, not just that the math on a chosen leg is correct. That step still needs a human on the visual-mode tester or a live chart.
+**Next:** in MT5 visual-mode Strategy Tester or a live XAUUSD-VIP M15 chart, draw the native Fib retracement tool over 5 of these legs (≥2 bearish) and compare 0.5/0.618 levels against the EA's zone. Good bearish candidates from this run: leg ending 2025.10.21 17:45 (high 4272.44 / low 4081.64) and leg ending 2025.10.14 16:00 (high 4144.27 / low 4097.78). Bullish candidates: 2025.10.06 08:00 (high 3945.06 / low 3882.89), 2025.10.08 08:30 (high 4037.03 / low 3984.42), 2025.10.01 11:15 (high 3895.26 / low 3853.33).
+**Commit:** _pending until manual visual gate also passes_
 
 ---
 
