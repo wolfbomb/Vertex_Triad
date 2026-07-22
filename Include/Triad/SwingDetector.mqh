@@ -31,6 +31,7 @@ struct SwingImpulseLeg
    double   atr;              // ATR(14) at leg terminus
    double   momentumRatio;
    double   maxInternalRetrace;
+   datetime startBarTime;
    datetime endBarTime;
   };
 
@@ -112,6 +113,10 @@ bool Swing_QualifyLeg(const SwingConfig &cfg,
                       const double &_close[],
                       const double &_open[],
                       const datetime &_time[],
+                      const bool exclActive,
+                      const bool exclBullish,
+                      const datetime exclStartTime,
+                      const datetime exclEndTime,
                       SwingImpulseLeg &outLeg,
                       string &rejectReason)
   {
@@ -128,6 +133,16 @@ bool Swing_QualifyLeg(const SwingConfig &cfg,
    if(startIndex >= arrSize || endIndex + 1 >= arrSize)
      {
       rejectReason = "array bounds";
+      return(false);
+     }
+
+   // A leg already invalidated this run must not silently re-qualify off the
+   // same fractal pair every bar until it ages out (SPEC §2.3 "re-scan for a
+   // NEW qualified leg" implies excluding the just-killed one, not repeating it).
+   if(exclActive && bullish == exclBullish &&
+      _time[startIndex] == exclStartTime && _time[endIndex] == exclEndTime)
+     {
+      rejectReason = "excluded: leg previously invalidated";
       return(false);
      }
 
@@ -226,7 +241,8 @@ bool Swing_QualifyLeg(const SwingConfig &cfg,
       return(false);
      }
 
-   outLeg.endBarTime = _time[endIndex];
+   outLeg.startBarTime = _time[startIndex];
+   outLeg.endBarTime   = _time[endIndex];
    outLeg.valid = true;
    return(true);
   }
@@ -240,6 +256,10 @@ bool Swing_FindLatestQualifiedLeg(const SwingConfig &cfg,
                                   const double &_close[],
                                   const double &_open[],
                                   const datetime &_time[],
+                                  const bool exclActive,
+                                  const bool exclBullish,
+                                  const datetime exclStartTime,
+                                  const datetime exclEndTime,
                                   SwingImpulseLeg &outLeg,
                                   string &rejectReason)
   {
@@ -301,6 +321,7 @@ bool Swing_FindLatestQualifiedLeg(const SwingConfig &cfg,
          string reason;
          if(Swing_QualifyLeg(cfg, true, startLow, endHigh,
                              _high, _low, _close, _open, _time,
+                             exclActive, exclBullish, exclStartTime, exclEndTime,
                              candidate, reason))
            {
             if(candidate.endIndex < bestEnd)
@@ -334,6 +355,7 @@ bool Swing_FindLatestQualifiedLeg(const SwingConfig &cfg,
          string reason;
          if(Swing_QualifyLeg(cfg, false, startHigh, endLow,
                              _high, _low, _close, _open, _time,
+                             exclActive, exclBullish, exclStartTime, exclEndTime,
                              candidate, reason))
            {
             if(candidate.endIndex < bestEnd)

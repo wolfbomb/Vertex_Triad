@@ -29,7 +29,7 @@
 | # | Phase | Status | Started | Completed | Commit | Notes |
 |---|---|:---:|---|---|---|---|
 | 0 | Scaffold | 🔲 | | | | |
-| 1 | SwingDetector + FibZone | 🔨 | 2026-07-21 | | | Core detection + zone logic implemented; verification pending |
+| 1 | SwingDetector + FibZone | ⚠️ | 2026-07-21 | 2026-07-22 | _pending_ | Complete with caveats — see session log. Math verified at scale; visual native-tool gate only 1/5 legs done; full-retrace path likely unreachable |
 | 2 | VolumeProfile | 🔲 | | | | TradingView cross-check is the gate |
 | 3 | EngulfDetector | 🔲 | | | | |
 | 4 | ConfluenceScorer | 🔲 | | | | |
@@ -47,9 +47,9 @@
 
 | Module | Status | Phase | LOC | Last touched | Notes |
 |---|:---:|:---:|---:|---|---|
-| `VERTEX_Triad.mq5` | 🔨 | 1 | | 2026-07-21 | Phase 1 wiring added in OnTick |
-| `SwingDetector.mqh` | 🔨 | 1 | | 2026-07-21 | Fractal swings + leg qualification filters implemented |
-| `FibZone.mqh` | 🔨 | 1 | | 2026-07-21 | Zone build + invalidation checks implemented |
+| `VERTEX_Triad.mq5` | ⚠️ | 1 | | 2026-07-22 | Phase 1 wiring added in OnTick; invalidated-leg exclusion state added |
+| `SwingDetector.mqh` | ⚠️ | 1 | | 2026-07-22 | Fractal swings + leg qualification filters implemented; invalidated-leg exclusion added (single-slot memory) |
+| `FibZone.mqh` | ⚠️ | 1 | | 2026-07-21 | Zone build + invalidation checks implemented; full-retrace path likely unreachable given check ordering (see open issues) |
 | `VolumeProfile.mqh` | 🔲 | 2 | | | |
 | `EngulfDetector.mqh` | 🔲 | 3 | | | |
 | `ConfluenceScorer.mqh` | 🔲 | 4 | | | |
@@ -57,7 +57,7 @@
 | `TradeExecutor.mqh` | 🔲 | 5 | | | |
 | `PositionManager.mqh` | 🔲 | 6 | | | |
 | `Journal.mqh` | 🔲 | 4 | | | |
-| `Visualizer.mqh` | 🔨 | 1 | | 2026-07-21 | Prefix-scoped phase-1 fib visualization implemented |
+| `Visualizer.mqh` | ✅ | 1 | | 2026-07-21 | Prefix-scoped phase-1 fib visualization implemented; OnDeinit cleanup confirmed prefix-scoped only |
 | `Notifier.mqh` | 🔲 | 7 | | | Router — no direct coupling |
 | `Dashboard.mqh` | 🔲 | 7 | | | |
 | `Telegram.mqh` | 🔲 | 8 | | | |
@@ -106,13 +106,35 @@ Newest first. One entry per working session.
 **Next:** in MT5 visual-mode Strategy Tester or a live XAUUSD-VIP M15 chart, draw the native Fib retracement tool over 5 of these legs (≥2 bearish) and compare 0.5/0.618 levels against the EA's zone. Good bearish candidates from this run: leg ending 2025.10.21 17:45 (high 4272.44 / low 4081.64) and leg ending 2025.10.14 16:00 (high 4144.27 / low 4097.78). Bullish candidates: 2025.10.06 08:00 (high 3945.06 / low 3882.89), 2025.10.08 08:30 (high 4037.03 / low 3984.42), 2025.10.01 11:15 (high 3895.26 / low 3853.33).
 **Commit:** _pending until manual visual gate also passes_
 
+### 2026-07-22 — Phase 1 closeout (invalidation-churn fix + partial visual gate)
+
+**Goal:** fix a design gap found while doing the manual visual comparison, and complete as much of the 5-leg native-tool gate as practical.
+**Done:**
+
+1. Found via live visual-mode walkthrough that an invalidated leg was silently re-qualifying every bar (same dead swing accept→invalidate loop for hours), because `Swing_FindLatestQualifiedLeg` had no memory of what it just killed. Fixed: added `startBarTime` to `SwingImpulseLeg`, threaded an exclusion identity (direction + start/end time) through `Swing_QualifyLeg`/`Swing_FindLatestQualifiedLeg`, and the EA now remembers the most recently invalidated leg and excludes it from re-qualification. User approved this direction explicitly (option: "Bar the invalidated leg"). Single-slot memory only — matches existing single-active-leg architecture, does not track a full invalidation history.
+2. Recompiled clean: **0 errors, 0 warnings** (`docs/phase1/compile_readable.txt`, `docs/phase1/compile.log`).
+3. Manual native-tool comparison: walked through MT5's Fibonacci Retracement tool live with the user (mobile/remote session, no GUI automation reliable — see below). Confirmed **1 bullish leg exact match** (high=3945.06/low=3882.89 → fib050=3913.975, fib0618=3906.63894, both matching the EA log to 5 decimal places), including working out that MT5 anchors 0%/100% by time-order (not high/low), so the EA's `fib0618` always maps to MT5's `38.2` level, not `61.8`, when the leg follows natural chronological order (low-before-high for bullish, high-before-low for bearish, verified algebraically both ways).
+4. Pulled 2 bearish leg candidates with full computed values from the CSV evidence for future use: leg 2025.10.14 16:00 (high 4144.27/low 4097.78 → fib050=4121.025, fib0618=4126.51082) and leg 2025.09.30 12:45 (high 3871.62/low 3793.14 → fib050=3832.38, fib0618=3841.64064).
+
+**Evidence:** `docs/phase1/phase1_zones.csv`, `docs/phase1/phase1_zones_verification.txt` (5345/5345 automated math pass, unchanged), `docs/phase1/compile_readable.txt` (post-fix recompile), this log entry (native-tool cross-check numbers).
+
+**Blocked / open — real gaps, not swept under the rug:**
+
+- **Only 1 of the required 5 legs got the actual native-Fib-tool visual comparison** (CHECKLIST.md Phase 1 requires ≥5, including ≥2 bearish). The 2 bearish candidates above have verified math but were never actually drawn/compared on-chart — GUI automation attempts to drive this remotely caused a real incident (see below) and were abandoned.
+- **GUI automation incident:** while attempting to drive MT5 via simulated window-focus/clicks (user was on a mobile remote session and couldn't interact directly), a stale/misdirected window focus call landed on the user's separate Claude desktop app instead of MT5, and a prompt ("explain Elliott Wave Theory...") got submitted there, which then created and attempted to compile an unrelated `ELLIOT~1.MQ5` file (8 compile errors, later fixed by the user/other session to 0 errors). Confirmed **zero impact on VERTEX_Triad** — different terminal data folder, different EA, untouched repo. Automation was stopped once this was discovered. **Lesson: do not attempt simulated mouse/window automation on this machine again without a much more reliable window-targeting method than `SetForegroundWindow`/coordinate clicks** — focus silently resolved to the wrong top-level window more than once.
+- **Invalidation path coverage is incomplete.** Grepped all available tester/agent logs: `0.786 breach` fires constantly (3164+ occurrences), but **`full retrace` and `age expiry` have never fired, in any run.** Root cause for full-retrace: `Fib_CheckInvalidation` checks 0.786 breach first and returns immediately — since the 0.786 level always sits between legHigh and legLow (closer to legLow), price cannot reach `legLow` (full retrace) without already having breached 0.786 on an earlier bar. **This makes the full-retrace check likely unreachable dead code as currently ordered**, not just untested. Age-expiry not firing is more benign (legs get invalidated or superseded well before 50–150 bars). Not fixed — flagged for a decision, since changing gate/invalidation behavior needs explicit sign-off per CLAUDE.md.
+
+**Next:** (a) decide whether to restructure `Fib_CheckInvalidation`'s check order/logic so full-retrace is actually reachable, or accept 0.786-breach as the practical invalidation trigger and drop/relabel the full-retrace check; (b) finish the remaining 4 legs of the native-tool visual gate next time a normal (non-mobile) session is available; (c) then commit Phase 1.
+**Commit:** _pending — see open items above_
+
 ---
 
 ## Open issues
 
 | # | Raised | Severity | Issue | Owner | Status |
-|---|---|:---:|---|---|:---:|
-| | | | | | |
+| --- | --- | :---: | --- | --- | :---: |
+| 1 | 2026-07-22 | 🟡 | `Fib_CheckInvalidation`'s full-retrace path appears unreachable — 0.786 breach always fires first given check ordering and thresholds. Zero occurrences in any test run. | Nimrod | Open |
+| 2 | 2026-07-22 | 🔵 | Phase 1's 5-leg native-Fib-tool visual gate only 1/5 complete (1 bullish exact match). 2 bearish + 2 bullish candidates identified with verified math, not yet drawn/compared on-chart. | Nimrod | Open |
 
 **Severity:** 🔴 Blocker · 🟡 Needs decision · 🔵 Nice to have
 
@@ -144,7 +166,8 @@ Where the proof lives for each phase gate.
 
 | Phase | Evidence required | Location | Verified |
 |---|---|---|:---:|
-| 1 | Fib zone vs. manual tool, 5 legs (2 bearish) | `docs/phase1/` | 🔲 |
+| 1 | Fib zone vs. manual tool, 5 legs (2 bearish) | `docs/phase1/` | ⚠️ 1/5 (see open issue #2) |
+| 1 | Zone math independent recomputation, all legs | `docs/phase1/phase1_zones_verification.txt` | ✅ 5345/5345 |
 | 2 | EA profile vs. TradingView side-by-side | `docs/phase2/` | 🔲 |
 | 2 | Recompute call-count log | `docs/phase2/` | 🔲 |
 | 3 | 100-bar annotated pattern review | `docs/phase3/` | 🔲 |
@@ -221,6 +244,8 @@ Things true about this build that must not be forgotten when reading its results
 
 - Tick volume is used as a proxy for real traded volume on FX/CFD symbols. Pillar 2 measures participation approximately, not exchange volume.
 - Telegram domain whitelisting is a manual per-terminal step and does not travel with the code.
+- Invalidated-leg exclusion (SwingDetector) remembers only the single most-recently-invalidated leg, not a full history. An older leg invalidated before the current one became active could theoretically re-qualify. Matches the existing single-active-leg architecture; would need a real design change (not just a bug fix) to track more.
+- `Fib_CheckInvalidation`'s full-retrace path has never fired in any test run and is likely unreachable given current check ordering (0.786 breach always fires first) — see Open issue #1.
 - Backtest performance is not a prediction of live performance. The demo forward test is the real gate.
 - _(add as discovered)_
 

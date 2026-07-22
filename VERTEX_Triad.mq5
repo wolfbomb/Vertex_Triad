@@ -50,6 +50,15 @@ datetime g_lastBarTime = 0;
 SwingImpulseLeg g_activeLeg;
 FibZoneState    g_activeZone;
 
+// Identity of the most recently invalidated leg (SPEC §2.3: re-scan for a NEW
+// qualified leg — without this, the same dead fractal pair keeps re-qualifying
+// every bar until it ages out, since raw price data alone can't tell "new" from
+// "the same swing that already failed").
+bool     g_hasInvalidatedLeg  = false;
+bool     g_invalidatedBullish = false;
+datetime g_invalidatedStart   = 0;
+datetime g_invalidatedEnd     = 0;
+
 // Price series arrays — copied from the broker feed on each new bar.
 // MQL5 has no implicit global High[]/Low[]/etc. in include files;
 // all modules receive these by const-ref parameter. (SPEC §11 MQL5 note)
@@ -170,7 +179,10 @@ void OnTick()
 
    SwingImpulseLeg detectedLeg;
    string rejectReason;
-   if(Swing_FindLatestQualifiedLeg(cfg, g_high, g_low, g_close, g_open, g_time, detectedLeg, rejectReason))
+   if(Swing_FindLatestQualifiedLeg(cfg, g_high, g_low, g_close, g_open, g_time,
+                                   g_hasInvalidatedLeg, g_invalidatedBullish,
+                                   g_invalidatedStart, g_invalidatedEnd,
+                                   detectedLeg, rejectReason))
      {
       const bool legChanged = (!g_activeLeg.valid ||
                                g_activeLeg.startIndex != detectedLeg.startIndex ||
@@ -221,6 +233,10 @@ void OnTick()
       if(Fib_CheckInvalidation(g_activeZone, MaxLegAgeBars, g_close, invalidReason))
         {
          PrintFormat("[PH1] Zone invalidated: %s", invalidReason);
+         g_hasInvalidatedLeg  = true;
+         g_invalidatedBullish = g_activeLeg.bullish;
+         g_invalidatedStart   = g_activeLeg.startBarTime;
+         g_invalidatedEnd     = g_activeLeg.endBarTime;
          g_activeLeg.valid = false;
          Fib_Reset(g_activeZone);
         }
