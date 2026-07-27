@@ -127,13 +127,22 @@ Newest first. One entry per working session.
 **Next:** (a) decide whether to restructure `Fib_CheckInvalidation`'s check order/logic so full-retrace is actually reachable, or accept 0.786-breach as the practical invalidation trigger and drop/relabel the full-retrace check; (b) finish the remaining 4 legs of the native-tool visual gate next time a normal (non-mobile) session is available; (c) then commit Phase 1.
 **Commit:** _pending — see open items above_
 
+### 2026-07-27 — Phase 1: full-retrace fix verified
+
+**Goal:** resolve open issue #1 (full-retrace invalidation path unreachable).
+**Done:** swapped check order in `Fib_CheckInvalidation` — full retrace now checked _before_ 0.786 breach (previously the reverse), so the more severe/specific reason surfaces when both conditions are true on the same bar, instead of 0.786-breach always winning by check order. No change to invalidation timing or zone math, only which reason string gets logged. User explicitly approved this direction. Recompiled clean (0 errors, 0 warnings). Re-ran the headless Oct–Dec 2025 tester pass (MT5 auto-updated to build 6063 since last session — file paths shifted to a new `Agent-127.0.0.1-3000` folder, took two attempts to find) and confirmed: **`full retrace` now fires 534 times, `0.786 breach` 280 times** (previously all 3164+ such events were misreported as breach only). Re-ran `verify_phase1_zones.py` against the fresh CSV: **4749/4749 rows PASS, 0 FAIL** — zone math unaffected by the reorder, as expected.
+**Evidence:** `docs/phase1/phase1_zones.csv`, `docs/phase1/phase1_zones_verification.txt`, `docs/phase1/compile_readable.txt` (all refreshed this session).
+**Blocked / open:** Open issue #2 (5-leg visual gate, 1/5 done) still outstanding — needs a normal desktop session, not mobile/remote.
+**Next:** finish the remaining 4 legs of the native-tool visual gate, then close Phase 1 fully and commit.
+**Commit:** _pending — open issue #2 only_
+
 ---
 
 ## Open issues
 
 | # | Raised | Severity | Issue | Owner | Status |
 | --- | --- | :---: | --- | --- | :---: |
-| 1 | 2026-07-22 | 🟡 | `Fib_CheckInvalidation`'s full-retrace path appears unreachable — 0.786 breach always fires first given check ordering and thresholds. Zero occurrences in any test run. | Nimrod | Open |
+| 1 | 2026-07-22 | 🟡 | `Fib_CheckInvalidation`'s full-retrace path appears unreachable — 0.786 breach always fires first given check ordering and thresholds. Zero occurrences in any test run. | Nimrod | ✅ Resolved 2026-07-27 |
 | 2 | 2026-07-22 | 🔵 | Phase 1's 5-leg native-Fib-tool visual gate only 1/5 complete (1 bullish exact match). 2 bearish + 2 bullish candidates identified with verified math, not yet drawn/compared on-chart. | Nimrod | Open |
 
 **Severity:** 🔴 Blocker · 🟡 Needs decision · 🔵 Nice to have

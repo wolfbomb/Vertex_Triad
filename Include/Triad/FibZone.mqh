@@ -110,29 +110,33 @@ bool Fib_CheckInvalidation(const FibZoneState &zone,
      }
 
    const double c1 = _close[1];   // last CLOSED bar (series order, SPEC §2 repainting rule)
+   // Full retrace is checked before 0.786 breach: since FibInvalidation (0.786) < 1.0,
+   // any full retrace is necessarily also a 0.786 breach. Checking breach first would
+   // make full retrace permanently unreachable as a *reported* reason, even though it's
+   // the more severe/informative case (SPEC §2.3 rejection data is the tuning signal).
    if(zone.bullish)
      {
-      if(c1 < zone.invalidationLevel)
-        {
-         reason = StringFormat("0.786 breach: close=%.5f < %.5f", c1, zone.invalidationLevel);
-         return(true);
-        }
       if(c1 < zone.legLow)
         {
          reason = StringFormat("full retrace: close=%.5f < legLow=%.5f", c1, zone.legLow);
          return(true);
         }
+      if(c1 < zone.invalidationLevel)
+        {
+         reason = StringFormat("0.786 breach: close=%.5f < %.5f", c1, zone.invalidationLevel);
+         return(true);
+        }
      }
    else
      {
-      if(c1 > zone.invalidationLevel)
-        {
-         reason = StringFormat("0.786 breach: close=%.5f > %.5f", c1, zone.invalidationLevel);
-         return(true);
-        }
       if(c1 > zone.legHigh)
         {
          reason = StringFormat("full retrace: close=%.5f > legHigh=%.5f", c1, zone.legHigh);
+         return(true);
+        }
+      if(c1 > zone.invalidationLevel)
+        {
+         reason = StringFormat("0.786 breach: close=%.5f > %.5f", c1, zone.invalidationLevel);
          return(true);
         }
      }

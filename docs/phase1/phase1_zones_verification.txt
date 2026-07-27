@@ -1,12 +1,12 @@
 
 === Phase 1 Zone Math Verification ===
 File : d:/VERTEX_Triad/docs/phase1/phase1_zones.csv
-Rows : 5345
-PASS : 5345
+Rows : 4749
+PASS : 4749
 FAIL : 0
 Tolerance : ±0.01 (1 point XAUUSD)
 
 All zone calculations verified correct.
 
 Phase 1 math gate: PASS
-Evidence: 5345 legs verified across backtest run.
+Evidence: 4749 legs verified across backtest run.

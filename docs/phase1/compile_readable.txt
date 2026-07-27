@@ -49,4 +49,4 @@ C:\Users\nimrod.resulta\AppData\Roaming\MetaQuotes\Terminal\9BB124B7D418C7FB69DF
  : information: generating code 95%
  : information: generating code 100%
  : information: code generated
-Result: 0 errors, 0 warnings, 483 ms elapsed, cpu='X64 Regular'
+Result: 0 errors, 0 warnings, 498 ms elapsed, cpu='X64 Regular'
